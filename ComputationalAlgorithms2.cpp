@@ -134,7 +134,7 @@ int JacobisMethod(std::vector<std::vector<double>> Matrix, std::vector<double> F
     int k = 0;
     if(!DiagonalFlag)
     {
-        for (k = 0; k > -1; k++)
+        for(k = 0; k > -1; k++)
         {
             std::vector<double> XPrevious = X;
             for (int i = 0; i < Dimension; i++)
