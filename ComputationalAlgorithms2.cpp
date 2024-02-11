@@ -85,7 +85,7 @@ int main()
         OutputFile << std::endl << "Точность: " << std::endl;
         OutputFile << Accuracy << std::endl;
         std::vector<double> X(Dimension);
-        std::vector<double> Residual = GetResidualVector(Matrix, Dimension, X, FreeTermsColumn);
+        std::vector<double> Residual(Dimension);
         OutputFile << std::endl << "Количество итераций метода Якоби: " << std::endl;
         if(JacobisMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) == -1)
             OutputFile << "Метод Якоби расходится, либо сходится слишком медленно." << std::endl;
@@ -94,12 +94,13 @@ int main()
             OutputFile << JacobisMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) << std::endl;
             OutputFile << std::endl << "Решения СЛАУ метода Якоби: " << std::endl;
             VectorOutput(X, Dimension, OutputFile);
+            Residual = GetResidualVector(Matrix, Dimension, X, FreeTermsColumn);
             OutputFile << std::endl << "Невязка: " << std::endl;
             VectorOutput(Residual, Dimension, OutputFile);
             OutputFile << std::endl << "Норма невязки: " << std::endl << GetResidualNorm(Residual, Dimension);
         }
         OutputFile << std::endl << "Количество итераций метода Зейделя: " << std::endl;
-        if (JacobisMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) == -1)
+        if (SeidelsMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) == -1)
             OutputFile << "Метод Зейделя расходится, либо сходится слишком медленно." << std::endl;
         else
         {
