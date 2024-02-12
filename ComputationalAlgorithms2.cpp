@@ -2,6 +2,7 @@
 #include <fstream>
 #include <Windows.h>
 #include <vector>
+#include <random>
 
 void MatrixOutput(std::vector<std::vector<double>> Matrix, int Dimension, std::ostream& Stream);
 void VectorOutput(std::vector<double>Vector, int Dimension, std::ostream& Stream);
@@ -15,11 +16,14 @@ std::vector<double> DiagonalMatrixDominance(std::vector<std::vector<double>> Mat
 std::vector<double> GetResidualVector(std::vector<std::vector<double>> Matrix, int Dimension, std::vector<double> X,
                                       std::vector<double> FreeTermsColumn);
 double GetResidualNorm(std::vector<double> Residual, int Dimension);
+std::vector<std::vector<double>> GenerateMatrix(int Dimension);
+std::vector<double> GenerateVector(int Dimension);
 
 int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
+    srand(time(NULL));
     std::string DimensionFileName = "Dimension.txt";
     std::ifstream InputDimensionFile(DimensionFileName);
     int Dimension = 0; 
@@ -88,8 +92,8 @@ int main()
         OutputFile << StartingSolution << std::endl;
         std::vector<double> X(Dimension);
         std::vector<double> Residual(Dimension);
+        
         OutputFile << std::endl << "Количество итераций метода Якоби: " << std::endl;
-
         if(Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Jacobi") == -1)
             OutputFile << "Метод Якоби расходится, либо сходится слишком медленно." << std::endl;
         else
@@ -102,8 +106,8 @@ int main()
             VectorOutput(Residual, Dimension, OutputFile);
             OutputFile << std::endl << "Норма невязки: " << std::endl << GetResidualNorm(Residual, Dimension);
         }
+        
         OutputFile << std::endl << "Количество итераций метода Зейделя: " << std::endl;
-
         if (Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Siedel") == -1)
             OutputFile << "Метод Зейделя расходится, либо сходится слишком медленно." << std::endl;
         else
@@ -245,4 +249,23 @@ double GetResidualNorm(std::vector<double> Residual, int Dimension)
         if (fabs(Residual[i]) > Max)
             Max = fabs(Residual[i]);
     return Max;
+}
+//Генерирация вектора
+std::vector<double> GenerateVector(int Dimension)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(-100, 100);
+    std::vector<double> Vector(Dimension);
+    for (int i = 0; i < Dimension; i++)
+            Vector[i] = dist(gen);
+    return Vector;
+}
+//Генерация матрицы
+std::vector<std::vector<double>> GenerateMatrix(int Dimension) 
+{
+    std::vector<std::vector<double>> Matrix(Dimension, std::vector<double>(Dimension));
+    for (int i = 0; i < Dimension; i++)
+        Matrix[i] = GenerateVector(Dimension);
+    return Matrix;
 }
