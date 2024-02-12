@@ -5,14 +5,12 @@
 
 void MatrixOutput(std::vector<std::vector<double>> Matrix, int Dimension, std::ostream& Stream);
 void VectorOutput(std::vector<double>Vector, int Dimension, std::ostream& Stream);
-int JacobisMethod(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,
-                  std::vector<double> *const X, int Dimension, double Accuracy);
-int SeidelsMethod(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,
-                   std::vector<double> *const X, int Dimension, double Accuracy);
+int Method(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,
+                  std::vector<double> *const X, int Dimension, double Accuracy, double StartingSolution, std::string MethodName);
 double SumOfRowWithoutOneElement(std::vector<std::vector<double>> Matrix, std::vector<double> X, int Dimension, int IndexOfRow);
 bool CheckDiagonal(std::vector<std::vector<double>> Matrix, int Dimension);
 bool CheckAccuracy(std::vector<double> X, std::vector<double> XPrevious, int Dimension, double Accuracy);
-void SetStartingSolution(std::vector<double>* const X, int Dimension);
+void SetStartingSolution(std::vector<double>* const X, int Dimension, double Solution);
 std::vector<double> DiagonalMatrixDominance(std::vector<std::vector<double>> Matrix, int Dimension);
 std::vector<double> GetResidualVector(std::vector<std::vector<double>> Matrix, int Dimension, std::vector<double> X,
                                       std::vector<double> FreeTermsColumn);
@@ -61,13 +59,15 @@ int main()
     std::string AccuracyFileName = "Accuracy.txt";
     std::ifstream InputAccuracyFile(AccuracyFileName);
     double Accuracy = 0.0;
+    double StartingSolution = 0.0;
     if (InputAccuracyFile.is_open())
     {
         InputAccuracyFile >> Accuracy;
+        InputAccuracyFile >> StartingSolution;
         InputAccuracyFile.close();
     }
     else
-        std::cout << "Ошибка! Не удалось открыть файл для ввода точности!" << std::endl;
+        std::cout << "Ошибка! Не удалось открыть файл для ввода точности и начального приближения!" << std::endl;
 
     std::string OutputFileName = "Output.txt";
     std::ofstream OutputFile(OutputFileName);
@@ -84,14 +84,17 @@ int main()
         }
         OutputFile << std::endl << "Точность: " << std::endl;
         OutputFile << Accuracy << std::endl;
+        OutputFile << std::endl << "Начальное приближение: " << std::endl;
+        OutputFile << StartingSolution << std::endl;
         std::vector<double> X(Dimension);
         std::vector<double> Residual(Dimension);
         OutputFile << std::endl << "Количество итераций метода Якоби: " << std::endl;
-        if(JacobisMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) == -1)
+
+        if(Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Jacobi") == -1)
             OutputFile << "Метод Якоби расходится, либо сходится слишком медленно." << std::endl;
         else
         {
-            OutputFile << JacobisMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) << std::endl;
+            OutputFile << Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Jacobi") << std::endl;
             OutputFile << std::endl << "Решения СЛАУ метода Якоби: " << std::endl;
             VectorOutput(X, Dimension, OutputFile);
             Residual = GetResidualVector(Matrix, Dimension, X, FreeTermsColumn);
@@ -100,11 +103,12 @@ int main()
             OutputFile << std::endl << "Норма невязки: " << std::endl << GetResidualNorm(Residual, Dimension);
         }
         OutputFile << std::endl << "Количество итераций метода Зейделя: " << std::endl;
-        if (SeidelsMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) == -1)
+
+        if (Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Siedel") == -1)
             OutputFile << "Метод Зейделя расходится, либо сходится слишком медленно." << std::endl;
         else
         {
-            OutputFile << SeidelsMethod(Matrix, FreeTermsColumn, &X, Dimension, Accuracy) << std::endl;
+            OutputFile << Method(Matrix, FreeTermsColumn, &X, Dimension, Accuracy, StartingSolution, "Siedel") << std::endl;
             OutputFile << std::endl << "Решения СЛАУ метода Зейделя: " << std::endl;
             VectorOutput(X, Dimension, OutputFile);
             Residual = GetResidualVector(Matrix, Dimension, X, FreeTermsColumn);
@@ -118,7 +122,7 @@ int main()
         std::cout << "Ошибка! Не удалось открыть файл для вывода!" << std::endl;
     return 0;
 }
-
+//Вывод матрицы
 void MatrixOutput(std::vector<std::vector<double>> Matrix, int Dimension, std::ostream& Stream) 
 {
     for (int i = 0; i < Dimension; i++)
@@ -130,7 +134,7 @@ void MatrixOutput(std::vector<std::vector<double>> Matrix, int Dimension, std::o
         Stream << std::endl;
     }
 }
-
+//Вывод вектора
 void VectorOutput(std::vector<double>Vector, int Dimension, std::ostream& Stream)
 {
     for (int i = 0; i < Dimension; i++)
@@ -138,7 +142,7 @@ void VectorOutput(std::vector<double>Vector, int Dimension, std::ostream& Stream
         Stream << Vector[i] << std::endl;
     }
 }
-
+//Подсчет суммы элементов строки матрицы без некоторого элемента
 double SumOfRowWithoutOneElement(std::vector<std::vector<double>> Matrix, std::vector<double> X, int Dimension, int IndexOfRow)
 {
     double Sum = 0;
@@ -147,19 +151,24 @@ double SumOfRowWithoutOneElement(std::vector<std::vector<double>> Matrix, std::v
             Sum += Matrix[IndexOfRow][i] * X[i];
     return Sum;
 }
-
-int JacobisMethod(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,
-                              std::vector<double> *const X, int Dimension, double Accuracy)
+//Метод Якоби или Зейделя, в зависимости от MethodName
+int Method(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,std::vector<double> *const X,
+           int Dimension, double Accuracy, double StartingSolution, std::string MethodName)
 {
-    SetStartingSolution(X, Dimension);
+    SetStartingSolution(X, Dimension, StartingSolution);
     int k = 0;
     if(CheckDiagonal(Matrix, Dimension))
-    {
-        for(k = 0; k > -1; k++)
+        while(true)
         {
             std::vector<double> XPrevious = *X;
-            for (int i = 0; i < Dimension; i++)
-                (*X)[i] = (FreeTermsColumn[i] - SumOfRowWithoutOneElement(Matrix, XPrevious, Dimension, i)) / Matrix[i][i];
+            if (MethodName == "Jacobi")
+                for (int i = 0; i < Dimension; i++)
+                    (*X)[i] = (FreeTermsColumn[i] - SumOfRowWithoutOneElement(Matrix, XPrevious, Dimension, i)) / Matrix[i][i];
+            else if (MethodName == "Siedel")
+                for (int i = 0; i < Dimension; i++)
+                    (*X)[i] = (FreeTermsColumn[i] - SumOfRowWithoutOneElement(Matrix, *X, Dimension, i)) / Matrix[i][i];
+            else
+                return -2;
             if (CheckAccuracy(*X, XPrevious, Dimension, Accuracy))
                 break;
             if (std::isinf((*X)[0]))
@@ -167,36 +176,11 @@ int JacobisMethod(std::vector<std::vector<double>> Matrix, std::vector<double> F
                 k = -1;
                 break;
             }
+            k++;
         }
-
-    }
     return k;
 }
-
-int SeidelsMethod(std::vector<std::vector<double>> Matrix, std::vector<double> FreeTermsColumn,
-                  std::vector<double>* const X, int Dimension, double Accuracy)
-{
-    SetStartingSolution(X, Dimension);
-    int k = 0;
-    if (CheckDiagonal(Matrix, Dimension))
-    {
-        for (k = 0; k > -1; k++)
-        {
-            std::vector<double> XPrevious = *X;
-            for (int i = 0; i < Dimension; i++)
-                (*X)[i] = (FreeTermsColumn[i] - SumOfRowWithoutOneElement(Matrix, *X, Dimension, i)) / Matrix[i][i];
-            if (CheckAccuracy(*X, XPrevious, Dimension, Accuracy))
-                break;
-            if (std::isinf((*X)[0]))
-            {
-                k = -1;
-                break;
-            }
-        }
-    }
-    return k;
-}
-
+//Проверяет есть ли нули на главной диагонали матрицы
 bool CheckDiagonal(std::vector<std::vector<double>> Matrix, int Dimension)
 {
     for (int i = 0; i < Dimension; i++)
@@ -204,7 +188,7 @@ bool CheckDiagonal(std::vector<std::vector<double>> Matrix, int Dimension)
             return false;
     return true;
 }
-
+//Проверяет выполняется ли условие с погрешностью
 bool CheckAccuracy(std::vector<double> X, std::vector<double> XPrevious, int Dimension, double Accuracy)
 {
     double Max = fabs(X[0] - XPrevious[0]);
@@ -216,19 +200,19 @@ bool CheckAccuracy(std::vector<double> X, std::vector<double> XPrevious, int Dim
     else
         return false;
 }
-
-void SetStartingSolution(std::vector<double>* const X, int Dimension)
+//Устанавливает начальное приближение
+void SetStartingSolution(std::vector<double>* const X, int Dimension, double Solution)
 {
     for (int i = 0; i < Dimension; i++)
     {
-        (*X)[i] = 0.0;
+        (*X)[i] = Solution;
     }
 }
-
+//Подсчет диагонального преобладания матрицы
 std::vector<double> DiagonalMatrixDominance(std::vector<std::vector<double>> Matrix, int Dimension)
 {
     std::vector<double> Sum(Dimension);
-    SetStartingSolution(&Sum, Dimension);
+    SetStartingSolution(&Sum, Dimension, 0.0);
     for(int i = 0; i < Dimension; i++)
         for (int j = 0; j < Dimension; j++)
             if (i != j)
@@ -237,7 +221,7 @@ std::vector<double> DiagonalMatrixDominance(std::vector<std::vector<double>> Mat
         Sum[i] = Sum[i] / fabs(Matrix[i][i]);
     return Sum;
 }
-
+//Вычисление невязки
 std::vector<double> GetResidualVector(std::vector<std::vector<double>> Matrix, int Dimension, std::vector<double> X,
                                       std::vector<double> FreeTermsColumn)
 {
@@ -253,7 +237,7 @@ std::vector<double> GetResidualVector(std::vector<std::vector<double>> Matrix, i
     }
     return R;
 }
-
+//Вычисление нормы невязки (формула для простейшего случая)
 double GetResidualNorm(std::vector<double> Residual, int Dimension) 
 {
     double Max = fabs(Residual[0]);
